@@ -5,8 +5,8 @@ lck_flag=''
 file=''
 user=''
 server_cmd='git-file-locker'
-server_cmd_ack="$server_cmd '--acquire'"
-server_cmd_rel="$server_cmd '--release'"
+server_cmd_ack="$server_cmd '--lock=acquire'"
+server_cmd_rel="$server_cmd '--lock=release'"
 
 error(){
     printf '\nERROR: %s\n\n' "$@"
