@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# usage $git-lock [--ack|--rel] [file]
+
+lck_flag=''
+file=''
+user=''
+server_cmd='git-file-locker'
+server_cmd_ack="$server_cmd '--acquire'"
+server_cmd_rel="$server_cmd '--release'"
+
+error(){
+    printf '\nERROR: %s\n\n' "$@"
+    return 0
+}
+
+help(){
+    printf '%s\n' "\$$0 [--ack|--rel] [file_to_lock]"
+    printf '%s\n' "--ack    Try to acquire lock."
+    printf '%s\n' "--rel    Try to release lock."
+    printf '%s\n' "--ack & --rel flags are mutually exclusive."
+    printf '%s\n' "-h|--help    Print this help and exit."
+    return 0
+}
+
+
+get_user(){
+    un=$(git config user.name)
+    um=$(git config user.email)
+
+    if [ -z "$un" ] || [ -z "$um" ]; then
+        error "User's name or email is not configured in config."
+        exit 1
+    fi
+    user="$un<$um>"
+}
+
+ack_lock(){
+    git pull --upload-pack="$server_cmd_ack '--user=$user' '--file=$file' "
+}
+
+rel_lock(){
+    git pull --upload-pack="$server_cmd_rel '--user=$user' '--file=$file' "
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --ack)
+            [ -n "$lck_flag" ] && error "Multiple flags defined." && help && exit 1
+            lck_flag='ACK'
+            shift
+            ;;
+        --rel)
+            [ -n "$lck_flag" ] && error "Multiple flags defined." && help && exit 1
+            lck_flag='REL'
+            shift
+            ;;
+        -h|--help)
+            help
+            exit 0
+            ;;
+        *)
+            [ -n "$file" ] && error "Multiple files specified." && help && exit 1
+            file="$1"
+            shift
+            ;;
+    esac
+done
+
+
+if [ -z "$lck_flag" ]; then
+    error "No flag specified. confused, what to do!!. tried help?"
+    exit 1
+fi
+
+if [ -z "$file" ]; then
+    error "No files specified. confused, what to do!!. tried help?"
+    exit 1
+fi
+
+get_user
+
+if [ -z "$user" ]; then
+    error "User is not configured properly for git usage. tried git help config?"
+    exit 1
+fi
+
+
+case "$lck_flag" in
+    ACK)
+        ack_lock
+        ;;
+    REL)
+        rel_lock
+        ;;
+    *)
+        error "Invalid flag value <$lck_flag>. tried help?"
+        exit 1
+        ;;
+esac
+
