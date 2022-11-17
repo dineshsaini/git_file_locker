@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+flag=""
+user=""
+file=""
+param=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --lock=*)
+            flag=$(printf '%s' "$1"| cut -d= -f2-)
+            shift
+            ;;
+        --user=*)
+            user=$(printf '%s' "$1"| cut -d= -f2-)
+            shift
+            ;;
+        --file=*)
+            file=$(printf '%s' "$1"| cut -d= -f2-)
+            shift
+            ;;
+        *)
+            param="$param $1"
+            shift
+    esac
+done
+
+echo "[server:git_file_locker]:: lock=$flag" >> /var/www/html/git/repos/repo1.git/file_logger 
+echo "[server:git_file_locker]:: user=$user" >> /var/www/html/git/repos/repo1.git/file_logger 
+echo "[server:git_file_locker]:: file=$file" >> /var/www/html/git/repos/repo1.git/file_logger 
+echo "[server:git_file_locker]:: param=$param" >> /var/www/html/git/repos/repo1.git/file_logger 
+
+git-upload-pack $param
