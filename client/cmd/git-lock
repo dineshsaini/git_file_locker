@@ -4,6 +4,8 @@
 lck_flag=''
 file=''
 user=''
+branch=''
+
 server_cmd='git-file-locker'
 server_cmd_ack="$server_cmd '--lock=acquire'"
 server_cmd_rel="$server_cmd '--lock=release'"
@@ -24,7 +26,6 @@ help(){
     return 0
 }
 
-
 get_user(){
     un=$(git config user.name)
     um=$(git config user.email)
@@ -36,16 +37,20 @@ get_user(){
     user="$un<$um>"
 }
 
+get_branch(){
+    branch=$(git rev-parse --abbrev-ref HEAD)
+}
+
 ack_lock(){
-    git pull --upload-pack="$server_cmd_ack '--user=$user' '--file=$file' "
+    git pull --upload-pack="$server_cmd_ack '--branch=$branch' '--user=$user' '--file=$file' "
 }
 
 rel_lock(){
-    git pull --upload-pack="$server_cmd_rel '--user=$user' '--file=$file' "
+    git pull --upload-pack="$server_cmd_rel '--branch=$branch' '--user=$user' '--file=$file' "
 }
 
 query_lock(){
-    git pull --upload-pack="$server_cmd_query '--file=$file' "
+    git pull --upload-pack="$server_cmd_query '--branch=$branch' '--file=$file' "
 }
 
 while [[ $# -gt 0 ]]; do
@@ -92,6 +97,13 @@ get_user
 
 if [ -z "$user" ]; then
     error "User is not configured properly for git usage. tried git help config?"
+    exit 1
+fi
+
+get_branch
+
+if [ -z "$branch" ]; then
+    error "Could not get branch name."
     exit 1
 fi
 
