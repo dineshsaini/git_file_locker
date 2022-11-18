@@ -7,6 +7,7 @@ user=''
 server_cmd='git-file-locker'
 server_cmd_ack="$server_cmd '--lock=acquire'"
 server_cmd_rel="$server_cmd '--lock=release'"
+server_cmd_query="$server_cmd '--lock=query'"
 
 error(){
     printf '\nERROR: %s\n\n' "$@"
@@ -14,11 +15,12 @@ error(){
 }
 
 help(){
-    printf '%s\n' "\$$0 [--ack|--rel] [file_to_lock]"
-    printf '%s\n' "--ack    Try to acquire lock."
-    printf '%s\n' "--rel    Try to release lock."
-    printf '%s\n' "--ack & --rel flags are mutually exclusive."
-    printf '%s\n' "-h|--help    Print this help and exit."
+    printf '%s\n' "\$$0 [--ack|--rel|--query] [file_to_lock]"
+    printf '%s\n' "--ack        Try to acquire lock."
+    printf '%s\n' "--rel        Try to release lock."
+    printf '%s\n' "--ack & --rel    flags are mutually exclusive."
+    printf '%s\n' "--query      Check if file is already locked."
+    printf '%s\n' "-h|--help        Print this help and exit."
     return 0
 }
 
@@ -42,6 +44,10 @@ rel_lock(){
     git pull --upload-pack="$server_cmd_rel '--user=$user' '--file=$file' "
 }
 
+query_lock(){
+    git pull --upload-pack="$server_cmd_query '--file=$file' "
+}
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --ack)
@@ -52,6 +58,11 @@ while [[ $# -gt 0 ]]; do
         --rel)
             [ -n "$lck_flag" ] && error "Multiple flags defined." && help && exit 1
             lck_flag='REL'
+            shift
+            ;;
+        --query)
+            [ -n "$lck_flag" ] && error "Multiple flags defined." && help && exit 1
+            lck_flag='QUERY'
             shift
             ;;
         -h|--help)
@@ -91,6 +102,9 @@ case "$lck_flag" in
         ;;
     REL)
         rel_lock
+        ;;
+    QUERY)
+        query_lock
         ;;
     *)
         error "Invalid flag value <$lck_flag>. tried help?"
