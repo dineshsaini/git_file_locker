@@ -3,6 +3,7 @@
 flag=""
 user=""
 file=""
+branch=""
 param=""
 
 while [[ $# -gt 0 ]]; do
@@ -19,6 +20,10 @@ while [[ $# -gt 0 ]]; do
             file=$(printf '%s' "$1"| cut -d= -f2-)
             shift
             ;;
+        --branch=*)
+            branch=$(printf '%s' "$1"| cut -d= -f2-)
+            shift
+            ;;
         *)
             param="$param $1"
             shift
@@ -28,6 +33,7 @@ done
 echo "[server:git_file_locker]:: lock=$flag" >> /var/www/html/git/repos/repo1.git/file_logger 
 echo "[server:git_file_locker]:: user=$user" >> /var/www/html/git/repos/repo1.git/file_logger 
 echo "[server:git_file_locker]:: file=$file" >> /var/www/html/git/repos/repo1.git/file_logger 
+echo "[server:git_file_locker]:: branch=$branch" >> /var/www/html/git/repos/repo1.git/file_logger 
 echo "[server:git_file_locker]:: param=$param" >> /var/www/html/git/repos/repo1.git/file_logger 
 
 git-upload-pack $param
