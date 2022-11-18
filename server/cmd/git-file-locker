@@ -5,6 +5,7 @@ user=""
 file=""
 branch=""
 param=""
+repo=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -30,10 +31,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-echo "[server:git_file_locker]:: lock=$flag" >> /var/www/html/git/repos/repo1.git/file_logger 
-echo "[server:git_file_locker]:: user=$user" >> /var/www/html/git/repos/repo1.git/file_logger 
-echo "[server:git_file_locker]:: file=$file" >> /var/www/html/git/repos/repo1.git/file_logger 
-echo "[server:git_file_locker]:: branch=$branch" >> /var/www/html/git/repos/repo1.git/file_logger 
-echo "[server:git_file_locker]:: param=$param" >> /var/www/html/git/repos/repo1.git/file_logger 
+repo=$(printf '%s' "$param" | sed -e "s/^\(\(ht\|f\)tps\?\|ssh\):\\/\\/[^\\/]\+//" -e "s/?.*$//" -e 's/^\s\+//' -e 's/\s\+$//')
+
+
 
 git-upload-pack $param
