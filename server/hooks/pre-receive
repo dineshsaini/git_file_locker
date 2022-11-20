@@ -62,7 +62,7 @@ else
 fi
 
 # get cache dir
-CACHE_DIR="$BASE_DIR/git-repo-locker/cache/$REPO/$BRANCH/"
+CACHE_DIR="$BASE_DIR/git-file-locker/cache/locks/$REPO/$BRANCH"
 
 mkdir -p $CACHE_DIR
 

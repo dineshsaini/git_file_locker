@@ -47,6 +47,7 @@ PARAM=""
 REPO=""
 LOCK_VALIDITY="10h"         # 10 hours. after specified hours, lock becomes invalid.
 NO_UPLOAD=""               # yes -> do not upload, empty to upload(default).
+LOCK_FILE=""
 
 help(){
     echo "Usage: \$ git-file-locker --lock=<lock_flag> --repo=<repo_name>"
@@ -125,11 +126,26 @@ while [[ $# -gt 0 ]]; do
 done
 
 # LOCK FILE STRUCTURE
-# <git_user_home>/.cache/git-file-locker/locks/<repo_location>/branch/files.lck
+# <BASE_DIR>/git-file-locker/cache/locks/<repo>/<branch>/files.lck
 #   files.lck ::
 #   each line is a seperate lock
 #   line:: <lockable_file><NUL><user><NUL><time_of lock_grant><CRLF>
 #
+
+# get base dir
+if [ -d "/var/tmp" ] && [ -w "/var/tmp" ]; then
+    BASE_DIR="/var/tmp"
+elif [ -d "/tmp" ] && [ -w "/tmp" ]; then
+    BASE_DIR="/tmp"
+else
+    BASE_DIR=$(dirname $(mktemp))
+fi
+
+# get cache dir
+CACHE_DIR="$BASE_DIR/git-file-locker/cache/locks/$REPO/$BRANCH"
+
+# get lock file
+LOCK_FILE="$CACHE_DIR/files.lck"
 
 # LOCK ACQUIRE
 #
@@ -150,7 +166,11 @@ done
 #                   if yes, success, with error
 
 acquire_lock(){
-    echo "acquire"
+
+
+
+
+
 
 }
 
