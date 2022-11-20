@@ -166,12 +166,18 @@ LOCK_FILE="$CACHE_DIR/files.lck"
 #                   if yes, success, with error
 
 acquire_lock(){
+    local l_msg=$((/usr/bin/env perl -)< <(cat <<__END__
+        use v5.36;
+        use strict;
+        use warnings;
+    
+        my \$lock_file = "$LOCK_FILE";
+        
+__END__
+));
 
-
-
-
-
-
+    local retval=$?
+    echo "msg ==> {{ $l_msg }}, retval ==> {{ $retval }}"
 }
 
 # LOCK RELEASE
