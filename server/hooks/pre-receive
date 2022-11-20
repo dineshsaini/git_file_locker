@@ -17,23 +17,6 @@ read oldref newref refname;
 # in place of commiter, then change this pretty format to "%an<%ae>"
 CUR_USER=$(git log $newref -1 --pretty="%cn<%ce>")
 
-for f in $(git diff --name-only $oldref..$newref); do
-    # if file is locked,
-    #   get current user
-    #       if file is locked to current user?
-    #           if yes, then continue
-    #           if no, then fail to continue push and return error
-done
-
-# get base dir
-if [ -d "/var/tmp" ] && [ -w "/var/tmp" ]; then
-    BASE_DIR="/var/tmp"
-elif [ -d "/tmp" ] && [ -w "/tmp" ]; then
-    BASE_DIR="/tmp"
-else
-    BASE_DIR=$(dirname $(mktemp))
-fi
-
 # get repo name
 if [ $(git rev-parse --is-bare-repository) = true ]
 then
@@ -46,6 +29,35 @@ REPO=${REPO%.git}
 
 # get branch name
 BRANCH=$(git rev-parse --symbolic --abbrev-ref $refname)
+
+for f in $(git diff --name-only $oldref..$newref); do
+    local query_out=$(git-file-locker --lock=query --repo=$REPO \
+        --branch=$BRANCH --user=$CUR_USER --file=$f --no-upload 2>&1)
+    local query_retval=$?
+    if [[ "$query_retval" -le 1 ]]; then
+        # retval == 0, file is unlocked
+        # retval == 1, file is locked to same user, as supplied
+        continue;
+    elif [[ "$query_retval" -eq 2 ]]; then
+        # retval == 2, file is locked to someone else
+        local lck_user=$(printf '%s' "$query_out" | sed 's/^STATUS:LOCKED to user //')
+        echo "ERROR: File('$f') included in current operation is already locked to '$lck_user'."
+        echo "Can't continue, exiting."
+        exit 1
+    else
+        echo "ERROR: $query_out"
+        exit $query_retval
+    fi
+done
+
+# get base dir
+if [ -d "/var/tmp" ] && [ -w "/var/tmp" ]; then
+    BASE_DIR="/var/tmp"
+elif [ -d "/tmp" ] && [ -w "/tmp" ]; then
+    BASE_DIR="/tmp"
+else
+    BASE_DIR=$(dirname $(mktemp))
+fi
 
 # get cache dir
 CACHE_DIR="$BASE_DIR/git-repo-locker/cache/$REPO/$BRANCH/"

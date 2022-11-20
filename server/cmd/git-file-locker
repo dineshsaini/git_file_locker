@@ -1,44 +1,85 @@
 #!/usr/bin/env bash
 
-flag=""
-user=""
-file=""
-branch=""
-param=""
-repo=""
-max_time_of_lock="10h"
+# command format:
+#
+# git-file-locker --lock=<lock_flag> --repo=<repo_name> 
+#       --branch=<repo_branch_name> --user=<user> --file=<lockable_file> 
+#       [--no-upload] [git_upload_pack_parameters]
+#
+# lock_flag
+#       acquire     To acquire lock
+#       release     To release lock
+#       query       To query lock
+#
+# repo_name
+#       repo name on which file is to be locked
+#
+# repo_branch_name
+#       repo's branch on which file is to be locked
+#
+# user
+#       user which want to acquire the lock
+#       format is "user_name<user_email>"
+# lockable_file
+#       file location relative from repo base dir
+#
+# --no-upload
+#       if supplied then do not call git_upload_pack, by default it calls to
+#       git_upload_pack command in the end. If this option is supplied then
+#       git_upload_pack_parametes will be ignored, even if passed.
+#
+# git_upload_pack_parameters
+#       parameters to pass to git_upload_pack command in the end
+#       If mulitple paramaters are supplied then they will be joined with grammer:
+#
+#       PARAM=git_upload_pack parameter
+#       SP=<space>
+#       EMPTY=<>
+#       PARAM_ENTRY=<SP><PARAM>
+#       PARAM_LIST=<PARAM_ENTRY><PARAM_LIST>|<EMPTY>
+#
 
+
+FLAG=""
+USER=""
+FILE=""
+BRANCH=""
+PARAM=""
+REPO=""
+LOCK_VALIDITY="10h"         # 10 hours. after specified hours, lock becomes invalid.
+NO_UPLOAD=""               # yes -> do not upload, empty to upload(default).
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --lock=*)
-            flag=$(printf '%s' "$1"| cut -d= -f2-)
+            FLAG=$(printf '%s' "$1"| cut -d= -f2-)
             shift
             ;;
         --user=*)
-            user=$(printf '%s' "$1"| cut -d= -f2-)
+            USER=$(printf '%s' "$1"| cut -d= -f2-)
             shift
             ;;
         --file=*)
-            file=$(printf '%s' "$1"| cut -d= -f2-)
+            FILE=$(printf '%s' "$1"| cut -d= -f2-)
             shift
             ;;
         --branch=*)
-            branch=$(printf '%s' "$1"| cut -d= -f2-)
+            BRANCH=$(printf '%s' "$1"| cut -d= -f2-)
             shift
             ;;
         --repo=*)
-            repo=$(printf '%s' "$1"| cut -d= -f2-)
+            REPO=$(printf '%s' "$1"| cut -d= -f2-)
+            shift
+            ;;
+        --no-upload)
+            NO_UPLOAD="yes"
             shift
             ;;
         *)
-            param="$param $1"
+            PARAM="$param $1"
             shift
     esac
 done
-
-#repo=$(printf '%s' "$param" | sed -e "s/^\(\(ht\|f\)tps\?\|ssh\):\\/\\/[^\\/]\+//" -e "s/?.*$//" -e 's/^\s\+//' -e 's/\s\+$//')
-
 
 # LOCK FILE STRUCTURE
 # <git_user_home>/.cache/git-file-locker/locks/<repo_location>/branch/files.lck
@@ -46,8 +87,6 @@ done
 #   each line is a seperate lock
 #   line:: <lockable_file><NUL><user><NUL><time_of lock_grant><CRLF>
 #
-# PUSH LOCK FILE
-# <git_user_home>/.cache/git-file-locker/locks/<repo_location>/branch/push.lck
 
 # LOCK ACQUIRE
 #
@@ -101,5 +140,6 @@ done
 
 
 
-
-git-upload-pack $param
+if ! [ "$NO_UPLOAD" == "yes" ]; then
+    git-upload-pack $PARAM
+fi
