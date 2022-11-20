@@ -7,11 +7,15 @@ BRANCH=""
 CACHE_DIR=""
 CUR_USER=""
 
-# get current user
-
-
 # Get files begin pushed via 'git push'
 read oldref newref refname;
+
+# get user who is pushing the changes via 'git push'
+#
+# This user should comes from commiter_name<commiter_email>
+# If, you think this is a mistake and author_name<author_email> should comes
+# in place of commiter, then change this pretty format to "%an<%ae>"
+CUR_USER=$(git log $newref -1 --pretty="%cn<%ce>")
 
 for f in $(git diff --name-only $oldref..$newref); do
     # if file is locked,
@@ -51,9 +55,10 @@ mkdir -p $CACHE_DIR
 # acquire lock
 #
 # it doesn't matter if someone else has created lock first, as it is a lineant
-# lock and is not meant for push operation strictness, as that is by default managed
-# by git itself, this lock serve as a declaration that some push operation is going
-# on, so that while someone is acquiring lock on some file, then they can have warning
-# or error triggered to remined to update files before working on them directly.
+# lock and is not meant for push operation strictness, as that is by default 
+# managed by git itself, this lock serve as a declaration that some push 
+# operation is going on, so that while someone is acquiring lock on some file, 
+# then they can have warning or error triggered to remined to update files 
+# before working on them directly.
 touch $CACHE_DIR/push.lck
 
