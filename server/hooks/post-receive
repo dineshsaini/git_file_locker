@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+BASE_DIR=""
+REPO=""
+BRANCH=""
+
+CACHE_DIR=""
+
+# Get ref name 
+read oldref newref refname;
+
+# get base dir
+if [ -d "/var/tmp" ] && [ -w "/var/tmp" ]; then
+    BASE_DIR="/var/tmp"
+elif [ -d "/tmp" ] && [ -w "/tmp" ]; then
+    BASE_DIR="/tmp"
+else
+    BASE_DIR=$(dirname $(mktemp))
+fi
+
+# get repo name
+if [ $(git rev-parse --is-bare-repository) = true ]
+then
+    REPO=$(basename "$PWD")
+else
+    REPO=$(basename $(readlink -nf "$PWD"/..))
+fi
+
+REPO=${REPO%.git}
+
+# get branch name
+BRANCH=$(git rev-parse --symbolic --abbrev-ref $refname)
+
+# get cache dir
+CACHE_DIR="$BASE_DIR/git-repo-locker/cache/$REPO/$BRANCH/"
+
+# release lock
+if [ -d "$CACHE_DIR" ]; then
+    if [ -f "$CACHE_DIR/push.lck" ]; then
+        rm "$CACHE_DIR/push.lck" 2> /dev/null
+    fi
+fi
+

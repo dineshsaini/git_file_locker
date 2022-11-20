@@ -1,1 +1,59 @@
 #!/usr/bin/env bash
+
+BASE_DIR=""
+REPO=""
+BRANCH=""
+
+CACHE_DIR=""
+CUR_USER=""
+
+# get current user
+
+
+# Get files begin pushed via 'git push'
+read oldref newref refname;
+
+for f in $(git diff --name-only $oldref..$newref); do
+    # if file is locked,
+    #   get current user
+    #       if file is locked to current user?
+    #           if yes, then continue
+    #           if no, then fail to continue push and return error
+done
+
+# get base dir
+if [ -d "/var/tmp" ] && [ -w "/var/tmp" ]; then
+    BASE_DIR="/var/tmp"
+elif [ -d "/tmp" ] && [ -w "/tmp" ]; then
+    BASE_DIR="/tmp"
+else
+    BASE_DIR=$(dirname $(mktemp))
+fi
+
+# get repo name
+if [ $(git rev-parse --is-bare-repository) = true ]
+then
+    REPO=$(basename "$PWD")
+else
+    REPO=$(basename $(readlink -nf "$PWD"/..))
+fi
+
+REPO=${REPO%.git}
+
+# get branch name
+BRANCH=$(git rev-parse --symbolic --abbrev-ref $refname)
+
+# get cache dir
+CACHE_DIR="$BASE_DIR/git-repo-locker/cache/$REPO/$BRANCH/"
+
+mkdir -p $CACHE_DIR
+
+# acquire lock
+#
+# it doesn't matter if someone else has created lock first, as it is a lineant
+# lock and is not meant for push operation strictness, as that is by default managed
+# by git itself, this lock serve as a declaration that some push operation is going
+# on, so that while someone is acquiring lock on some file, then they can have warning
+# or error triggered to remined to update files before working on them directly.
+touch $CACHE_DIR/push.lck
+

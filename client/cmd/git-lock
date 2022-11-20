@@ -4,6 +4,7 @@
 lck_flag=''
 file=''
 user=''
+repo=''
 branch=''
 
 server_cmd='git-file-locker'
@@ -37,20 +38,25 @@ get_user(){
     user="$un<$um>"
 }
 
+get_repo(){
+    repo=$(basename "$(git rev-parse --show-toplevel)")
+    repo=${repo%.git}
+}
+
 get_branch(){
     branch=$(git rev-parse --abbrev-ref HEAD)
 }
 
 ack_lock(){
-    git pull --upload-pack="$server_cmd_ack '--branch=$branch' '--user=$user' '--file=$file' "
+    git pull --upload-pack="$server_cmd_ack '--repo=$repo' '--branch=$branch' '--user=$user' '--file=$file' "
 }
 
 rel_lock(){
-    git pull --upload-pack="$server_cmd_rel '--branch=$branch' '--user=$user' '--file=$file' "
+    git pull --upload-pack="$server_cmd_rel '--repo=$repo' '--branch=$branch' '--user=$user' '--file=$file' "
 }
 
 query_lock(){
-    git pull --upload-pack="$server_cmd_query '--branch=$branch' '--file=$file' "
+    git pull --upload-pack="$server_cmd_query '--repo=$repo' '--branch=$branch' '--file=$file' "
 }
 
 while [[ $# -gt 0 ]]; do
@@ -97,6 +103,13 @@ get_user
 
 if [ -z "$user" ]; then
     error "User is not configured properly for git usage. tried git help config?"
+    exit 1
+fi
+
+get_repo
+
+if [ -z "$repo" ]; then
+    error "Could not get repo name."
     exit 1
 fi
 

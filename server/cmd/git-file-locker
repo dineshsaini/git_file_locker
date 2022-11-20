@@ -6,6 +6,8 @@ file=""
 branch=""
 param=""
 repo=""
+max_time_of_lock="10h"
+
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -25,13 +27,78 @@ while [[ $# -gt 0 ]]; do
             branch=$(printf '%s' "$1"| cut -d= -f2-)
             shift
             ;;
+        --repo=*)
+            repo=$(printf '%s' "$1"| cut -d= -f2-)
+            shift
+            ;;
         *)
             param="$param $1"
             shift
     esac
 done
 
-repo=$(printf '%s' "$param" | sed -e "s/^\(\(ht\|f\)tps\?\|ssh\):\\/\\/[^\\/]\+//" -e "s/?.*$//" -e 's/^\s\+//' -e 's/\s\+$//')
+#repo=$(printf '%s' "$param" | sed -e "s/^\(\(ht\|f\)tps\?\|ssh\):\\/\\/[^\\/]\+//" -e "s/?.*$//" -e 's/^\s\+//' -e 's/\s\+$//')
+
+
+# LOCK FILE STRUCTURE
+# <git_user_home>/.cache/git-file-locker/locks/<repo_location>/branch/files.lck
+#   files.lck ::
+#   each line is a seperate lock
+#   line:: <lockable_file><NUL><user><NUL><time_of lock_grant><CRLF>
+#
+# PUSH LOCK FILE
+# <git_user_home>/.cache/git-file-locker/locks/<repo_location>/branch/push.lck
+
+# LOCK ACQUIRE
+#
+# check if lock acquired on same branch, on that file?
+#   if not, then 
+#       is push operation going on?
+#           if yes, then success with warning to update file
+#           if no, then acquire with success
+#   if yes, then
+#       is time of lock aquired within max limit?
+#           if no, then delete invalid lock
+#               is push operation going on?
+#                   if yes, then success with warning to update file
+#                   if no, then acquire with success.
+#           if yes, then
+#               is this same user?
+#                   if no, fail with error
+#                   if yes, success, with error
+# 
+#
+#
+# LOCK RELEASE
+#
+# check if lock acquired on same branch, on that file?
+#   if no, then nothing to relase, exit with success
+#   if yes,
+#       is time of lock acquired within max limit?
+#           if no, then invalid lock, release and return success
+#           if yes,
+#               is lock acquired by same user?
+#                   if no, then fail with error, cant release someone else's lock
+#                   if yes, release and return success
+#
+#
+# LOCK QUERY
+# check if lock-file exists of same branch?
+#   if no, then there is no lock, return unlocked
+#   if yes,
+#       is lockable file's enrty exists in that branch's lock-file?
+#           if no, then return unlocked
+#           if yes,
+#               is time of lock acquired within max limit?
+#                   if no, then return unlocked, with message 'acquired lock has already expired'
+#                   if yes, then return locked, with message 'locked to <user>'
+#
+#               
+# ACQUIRING LOCK
+# file write access must be syncronised so that only one wirte access to file, while performing.
+#
+
+
 
 
 
