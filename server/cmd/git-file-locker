@@ -153,10 +153,11 @@ acquire_lock(){
     local RETVAL=0
 
     mkdir -p $(dirname $f_lock)
+    touch $LOCK_FILE
 
     # try to lock lock_file for writing
     if ! [ -e $f_lock ]; then
-        (set -o noclobber; print '%s' "$$" > "$f_lock") 2> /dev/null;
+        (set -o noclobber; printf '%s' "$$" > "$f_lock") 2> /dev/null;
     fi
 
     # verify if we have lock, or race condition happened
@@ -213,7 +214,7 @@ acquire_lock(){
         fi
     fi
 
-    if [ "$lck_acquired" == "yes" ] && [ -f "$CACHE_DIR/push.lck"]; then
+    if [ "$lck_acquired" == "yes" ] && [ -f "$CACHE_DIR/push.lck" ]; then
         echo "WARN: Someone is pushing changes, please update file before edit."
     fi
 
@@ -236,7 +237,7 @@ acquire_lock(){
 #                   if yes, release and return success
 
 release_lock(){
-    echo "release"
+  echo "release"
 
 }
 
