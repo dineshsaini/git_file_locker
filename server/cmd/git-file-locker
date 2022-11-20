@@ -45,7 +45,7 @@ FILE=""
 BRANCH=""
 PARAM=""
 REPO=""
-LOCK_VALIDITY="10h"         # 10 hours. after specified hours, lock becomes invalid.
+MAX_LOCK_HOURS="10"        # 10 hours. after specified hours, lock becomes invalid.
 NO_UPLOAD=""               # yes -> do not upload, empty to upload(default).
 LOCK_FILE=""
 
@@ -129,7 +129,7 @@ done
 # <BASE_DIR>/git-file-locker/cache/locks/<repo>/<branch>/files.lck
 #   files.lck ::
 #   each line is a seperate lock
-#   line:: <lockable_file><NUL><user><NUL><time_of lock_grant><CRLF>
+#   line:: <lockable_file>:<user>:<time_of lock_grant><CRLF>
 #
 
 # get base dir
@@ -147,37 +147,80 @@ CACHE_DIR="$BASE_DIR/git-file-locker/cache/locks/$REPO/$BRANCH"
 # get lock file
 LOCK_FILE="$CACHE_DIR/files.lck"
 
-# LOCK ACQUIRE
-#
-# check if lock acquired on same branch, on that file?
-#   if not, then 
-#       is push operation going on?
-#           if yes, then success with warning to update file
-#           if no, then acquire with success
-#   if yes, then
-#       is time of lock aquired within max limit?
-#           if no, then delete invalid lock
-#               is push operation going on?
-#                   if yes, then success with warning to update file
-#                   if no, then acquire with success.
-#           if yes, then
-#               is this same user?
-#                   if no, fail with error
-#                   if yes, success, with error
-
 acquire_lock(){
-    local l_msg=$((/usr/bin/env perl -)< <(cat <<__END__
-        use v5.36;
-        use strict;
-        use warnings;
-    
-        my \$lock_file = "$LOCK_FILE";
-        
-__END__
-));
+    local f_lock="$LOCK_FILE.pid"
+    local count=$1
+    local RETVAL=0
 
-    local retval=$?
-    echo "msg ==> {{ $l_msg }}, retval ==> {{ $retval }}"
+    mkdir -p $(dirname $f_lock)
+
+    # try to lock lock_file for writing
+    if ! [ -e $f_lock ]; then
+        (set -o noclobber; print '%s' "$$" > "$f_lock") 2> /dev/null;
+    fi
+
+    # verify if we have lock, or race condition happened
+    if [ "$$" != "$(cat $f_lock)" ]; then
+        # someone else acquired lock, lets try 3 more times after 0.3sec sleep
+        [ -z "$count" ] && count=1
+        [[ $count -ge 4 ]] && echo "Could not acquired lock, please try again." && exit 1
+        sleep "0.3s"
+
+        acquire_lock $((++count))
+    fi
+
+    # we got lock, set trap for fails
+    trap "rm -f $f_lock" 0 1 2 3 9 15
+
+    local lck_acquired=""
+
+    local f_entry=$(sed -n "/^$FILE:/p" $LOCK_FILE)
+    
+    if [ -z "$f_entry" ]; then
+        printf '%s:%s:%s\n' "$FILE" "$USER" "$(date '+%s')" >> $LOCK_FILE
+        echo "INFO: Successfully acquired lock on File($FILE), lock is now valid for $MAX_LOCK_HOURS hour(s)."
+        lck_acquired="yes"
+    else
+        local lck_time=$(printf '%s' "$f_entry" | cut -d: -f3)
+        local valid_time=$(( lck_time + ( MAX_LOCK_HOURS * 60 * 60 ) ))
+        local cur_time=$(date '+%s')
+
+        if [[ $cur_time -lt $valid_time ]]; then
+            local lck_user=$(printf '%s' "$f_entry" | cut -d: -f2)
+            
+            if [ "$USER" != "$lck_user" ]; then
+                echo "ERROR: Can't lock File($FILE). It is already locked to '$USER'."
+                RETVAL=1
+            else
+                local d_time=$(( valid_time - cur_time ))
+                local min=$(( d_time / 60 ))
+                local hrs=$(( min / 60 ))
+                local t=""
+                if [[ $hrs -eq 0 ]]; then
+                    t="$min minute(s)"
+                else
+                    t="$hrs hour(s)"
+                fi
+                echo "INFO: You already have the lock, valid for $t."
+            fi
+        else
+            # remove invalid lock
+            sed -i "/^$FILE:/d" $LOCK_FILE
+
+            printf '%s:%s:%s\n' "$FILE" "$USER" "$(date '+%s')" >> $LOCK_FILE
+            echo "INFO: Successfully acquired lock on File($FILE), lock is now valid for $MAX_LOCK_HOURS hour(s)."
+            lck_acquired="yes"
+        fi
+    fi
+
+    if [ "$lck_acquired" == "yes" ] && [ -f "$CACHE_DIR/push.lck"]; then
+        echo "WARN: Someone is pushing changes, please update file before edit."
+    fi
+
+    # release lock, and remove trap
+    rm -f $f_lock
+    trap - 0 1 2 3 9 15
+    [[ $RETVAL -gt 0 ]] && exit $RETVAL
 }
 
 # LOCK RELEASE
