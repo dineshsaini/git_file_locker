@@ -4,7 +4,7 @@
 #
 # git-file-locker --lock=<lock_flag> --repo=<repo_name> 
 #       --branch=<repo_branch_name> --user=<user> --file=<lockable_file> 
-#       [--no-upload] [git_upload_pack_parameters]
+#       [--no-upload] [<git_upload_pack_parameters>]
 #
 # lock_flag
 #       acquire     To acquire lock
@@ -39,7 +39,6 @@
 #       PARAM_LIST=<PARAM_ENTRY><PARAM_LIST>|<EMPTY>
 #
 
-
 FLAG=""
 USER=""
 FILE=""
@@ -48,6 +47,46 @@ PARAM=""
 REPO=""
 LOCK_VALIDITY="10h"         # 10 hours. after specified hours, lock becomes invalid.
 NO_UPLOAD=""               # yes -> do not upload, empty to upload(default).
+
+help(){
+    echo "Usage: \$ git-file-locker --lock=<lock_flag> --repo=<repo_name>"
+    echo -e "\t--branch=<repo_branch_name> --user=<user> --file=<lockable_file>"
+    echo -e "\t[--no-upload] [<git_upload_pack_parameters>]"
+    echo -e "\n"
+    echo "lock_flag"
+    echo -e "\tacquire     To acquire lock"
+    echo -e "\trelease     To release lock"
+    echo -e "\tquery       To query lock"
+    echo ""
+    echo "repo_name"
+    echo -e "\trepo name on which file is to be locked"
+    echo ""
+    echo "repo_branch_name"
+    echo -e "\trepo's branch on which file is to be locked"
+    echo ""
+    echo "user"
+    echo -e "\tuser which want to acquire the lock"
+    echo -e "\tformat is 'user_name<user_email>'"
+    echo ""
+    echo "lockable_file"
+    echo -e "\tfile location relative from repo base dir"
+    echo ""
+    echo "--no-upload"
+    echo -e "\tif supplied then do not call git_upload_pack, by default it calls to"
+    echo -e "\tgit_upload_pack command in the end. If this option is supplied then"
+    echo -e "\tgit_upload_pack_parametes will be ignored, even if passed."
+    echo ""
+    echo "git_upload_pack_parameters"
+    echo -e "\tparameters to pass to git_upload_pack command in the end"
+    echo -e "\tIf mulitple paramaters are supplied then they will be joined with grammer:"
+    echo ""
+    echo -e "\tPARAM=git_upload_pack parameter"
+    echo -e "\tSP=<space>"
+    echo -e "\tEMPTY=<>"
+    echo -e "\tPARAM_ENTRY=<SP><PARAM>"
+    echo -e "\tPARAM_LIST=<PARAM_ENTRY><PARAM_LIST>|<EMPTY>"
+    echo ""
+}
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -74,6 +113,10 @@ while [[ $# -gt 0 ]]; do
         --no-upload)
             NO_UPLOAD="yes"
             shift
+            ;;
+        --help|-h)
+            help
+            exit 0
             ;;
         *)
             PARAM="$param $1"
@@ -105,9 +148,12 @@ done
 #               is this same user?
 #                   if no, fail with error
 #                   if yes, success, with error
-# 
-#
-#
+
+acquire_lock(){
+    echo "acquire"
+
+}
+
 # LOCK RELEASE
 #
 # check if lock acquired on same branch, on that file?
@@ -119,8 +165,12 @@ done
 #               is lock acquired by same user?
 #                   if no, then fail with error, cant release someone else's lock
 #                   if yes, release and return success
-#
-#
+
+release_lock(){
+    echo "release"
+
+}
+
 # LOCK QUERY
 # check if lock-file exists of same branch?
 #   if no, then there is no lock, return unlocked
@@ -132,13 +182,33 @@ done
 #                   if no, then return unlocked, with message 'acquired lock has already expired'
 #                   if yes, then return locked, with message 'locked to <user>'
 #
-#               
-# ACQUIRING LOCK
-# file write access must be syncronised so that only one wirte access to file, while performing.
-#
 
+query_lock(){
+    echo "query"
 
+}
 
+[ -z "$FLAG" ] && echo "ERROR: No lock flag supplied." && help && exit 2
+[ -z "$USER" ] && echo "ERROR: No user supplied." && help && exit 2
+[ -z "$REPO" ] && echo "ERROR: No repo supplied." && help && exit 2
+[ -z "$BRANCH" ] && echo "ERROR: No branch supplied." && help && exit 2
+[ -z "$FILE" ] && echo "ERROR: No file supplied." && help && exit 2
+
+case "$FLAG" in
+    acquire)
+        acquire_lock
+        ;;
+    release)
+        release_lock
+        ;;
+    query)
+        query_lock
+        ;;
+    *)
+        echo "ERROR: Invalid lock flag('$FLAG') supplied."
+        exit 2
+        ;;
+esac
 
 if ! [ "$NO_UPLOAD" == "yes" ]; then
     git-upload-pack $PARAM
