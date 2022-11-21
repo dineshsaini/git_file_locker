@@ -31,9 +31,9 @@ REPO=${REPO%.git}
 BRANCH=$(git rev-parse --symbolic --abbrev-ref $refname)
 
 for f in $(git diff --name-only $oldref..$newref); do
-    local query_out="$(git-file-locker --lock=query --repo=$REPO \
+    query_out="$(git-file-locker --lock=query --repo=$REPO \
         --branch=$BRANCH --user=$CUR_USER --file=$f --no-upload 2>&1)"
-    local query_retval=$?
+    query_retval=$?
 
     if [[ "$query_retval" -eq 0 ]]; then
         # retval == 0, file is either unlocked, or locked to same user, as supplied,
@@ -42,7 +42,7 @@ for f in $(git diff --name-only $oldref..$newref); do
     elif [[ "$query_retval" -eq  3 ]]; then
         # retval == 3, file is locked to someone else
 
-        local lck_msg=$(printf '%s' "$query_out" | sed -e 's/^STATUS:LOCKED, File is locked to //')
+        lck_msg=$(printf '%s' "$query_out" | sed -e 's/^STATUS:LOCKED, File is locked to //')
         echo "ERROR: File('$f') included in current operation is already locked to $lck_msg."
         echo "Can't continue, exiting."
         exit 1

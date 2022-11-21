@@ -48,15 +48,15 @@ get_branch(){
 }
 
 ack_lock(){
-    git pull --upload-pack="$server_cmd_ack '--repo=$repo' '--branch=$branch' '--user=$user' '--file=$file' "
+    git pull --upload-pack="$server_cmd_ack '--repo=$repo' '--branch=$branch' '--user=user' '--file=$file' "
 }
 
 rel_lock(){
-    git pull --upload-pack="$server_cmd_rel '--repo=$repo' '--branch=$branch' '--user=$user' '--file=$file' "
+    git pull --upload-pack="$server_cmd_rel '--repo=$repo' '--branch=$branch' '--user=user' '--file=$file' "
 }
 
 query_lock(){
-    git pull --upload-pack="$server_cmd_query '--repo=$repo' '--branch=$branch' '--file=$file' "
+    git pull --upload-pack="$server_cmd_query '--repo=$repo' '--branch=$branch' '--user=user' '--file=$file' "
 }
 
 while [[ $# -gt 0 ]]; do

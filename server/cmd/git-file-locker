@@ -196,7 +196,7 @@ acquire_lock(){
             local lck_user=$(printf '%s' "$f_entry" | cut -d: -f2)
             
             if [ "$USER" != "$lck_user" ]; then
-                echo "ERROR: Can't lock File($FILE). It is already locked to '$USER'."
+                echo "ERROR: Can't lock File($FILE). It is already locked to '$lck_user'."
                 RETVAL=3
             else
                 local d_time=$(( valid_time - cur_time ))
@@ -275,7 +275,7 @@ release_lock(){
                 local lck_user=$(printf '%s' "$f_entry" | cut -d: -f2)
             
                 if [ "$USER" != "$lck_user" ]; then
-                    echo "ERROR: File($FILE) is locked to '$USER'. Can't release someone else's lock."
+                    echo "ERROR: File($FILE) is locked to '$lck_user'. Can't release someone else's lock."
                     RETVAL=3
                 else
                     sed -i "/^$FILE:/d" $LOCK_FILE
@@ -352,7 +352,7 @@ query_lock(){
                 fi
             
                 if [ "$USER" != "$lck_user" ]; then
-                    echo "STATUS:LOCKED, File is locked to $USER, and is vaild for another $t."
+                    echo "STATUS:LOCKED, File is locked to $lck_user, and is vaild for another $t."
                     RETVAL=3
                 else
                     echo "STATUS:LOCKED, File is already locked by you($USER) for another $t."
