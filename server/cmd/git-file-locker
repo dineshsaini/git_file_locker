@@ -56,44 +56,48 @@ MAX_LOCK_HOURS="10"        # 10 hours. after specified hours, lock becomes inval
 NO_UPLOAD=""               # yes -> do not upload, empty to upload(default).
 LOCK_FILE=""
 
+logger(){
+    echo $@ >> /dev/stderr
+}
+
 help(){
-    echo "Usage: \$ git-file-locker --lock=<lock_flag> --repo=<repo_name>"
-    echo -e "\t--branch=<repo_branch_name> --user=<user> --file=<lockable_file>"
-    echo -e "\t[--no-upload] [<git_upload_pack_parameters>]"
-    echo -e "\n"
-    echo "lock_flag"
-    echo -e "\tacquire     To acquire lock"
-    echo -e "\trelease     To release lock"
-    echo -e "\tquery       To query lock"
-    echo ""
-    echo "repo_name"
-    echo -e "\trepo name on which file is to be locked"
-    echo ""
-    echo "repo_branch_name"
-    echo -e "\trepo's branch on which file is to be locked"
-    echo ""
-    echo "user"
-    echo -e "\tuser which want to acquire the lock"
-    echo -e "\tformat is 'user_name<user_email>'"
-    echo ""
-    echo "lockable_file"
-    echo -e "\tfile location relative from repo base dir"
-    echo ""
-    echo "--no-upload"
-    echo -e "\tif supplied then do not call git_upload_pack, by default it calls to"
-    echo -e "\tgit_upload_pack command in the end. If this option is supplied then"
-    echo -e "\tgit_upload_pack_parametes will be ignored, even if passed."
-    echo ""
-    echo "git_upload_pack_parameters"
-    echo -e "\tparameters to pass to git_upload_pack command in the end"
-    echo -e "\tIf mulitple paramaters are supplied then they will be joined with grammer:"
-    echo ""
-    echo -e "\tPARAM=git_upload_pack parameter"
-    echo -e "\tSP=<space>"
-    echo -e "\tEMPTY=<>"
-    echo -e "\tPARAM_ENTRY=<SP><PARAM>"
-    echo -e "\tPARAM_LIST=<PARAM_ENTRY><PARAM_LIST>|<EMPTY>"
-    echo ""
+    logger "Usage: \$ git-file-locker --lock=<lock_flag> --repo=<repo_name>"
+    logger -e "\t--branch=<repo_branch_name> --user=<user> --file=<lockable_file>"
+    logger -e "\t[--no-upload] [<git_upload_pack_parameters>]"
+    logger -e "\n"
+    logger "lock_flag"
+    logger -e "\tacquire     To acquire lock"
+    logger -e "\trelease     To release lock"
+    logger -e "\tquery       To query lock"
+    logger ""
+    logger "repo_name"
+    logger -e "\trepo name on which file is to be locked"
+    logger ""
+    logger "repo_branch_name"
+    logger -e "\trepo's branch on which file is to be locked"
+    logger ""
+    logger "user"
+    logger -e "\tuser which want to acquire the lock"
+    logger -e "\tformat is 'user_name<user_email>'"
+    logger ""
+    logger "lockable_file"
+    logger -e "\tfile location relative from repo base dir"
+    logger ""
+    logger "--no-upload"
+    logger -e "\tif supplied then do not call git_upload_pack, by default it calls to"
+    logger -e "\tgit_upload_pack command in the end. If this option is supplied then"
+    logger -e "\tgit_upload_pack_parametes will be ignored, even if passed."
+    logger ""
+    logger "git_upload_pack_parameters"
+    logger -e "\tparameters to pass to git_upload_pack command in the end"
+    logger -e "\tIf mulitple paramaters are supplied then they will be joined with grammer:"
+    logger ""
+    logger -e "\tPARAM=git_upload_pack parameter"
+    logger -e "\tSP=<space>"
+    logger -e "\tEMPTY=<>"
+    logger -e "\tPARAM_ENTRY=<SP><PARAM>"
+    logger -e "\tPARAM_LIST=<PARAM_ENTRY><PARAM_LIST>|<EMPTY>"
+    logger ""
 }
 
 while [[ $# -gt 0 ]]; do
@@ -170,7 +174,7 @@ acquire_lock(){
     if [ "$$" != "$(cat $f_lock)" ]; then
         # someone else acquired lock, lets try 3 more times after 0.3sec sleep
         [ -z "$count" ] && count=1
-        [[ $count -ge 4 ]] && echo "INFO: Could not acquired lock, please try again." && exit 2
+        [[ $count -ge 4 ]] && logger "INFO: Could not acquired lock, please try again." && exit 2
         sleep "0.3s"
 
         acquire_lock $((++count))
@@ -181,11 +185,11 @@ acquire_lock(){
 
     local lck_acquired=""
 
-    local f_entry=$(sed -n "/^$FILE:/p" $LOCK_FILE)
+    local f_entry=$(sed -n "/^${FILE//\//\\/}:/p" $LOCK_FILE)
     
     if [ -z "$f_entry" ]; then
         printf '%s:%s:%s\n' "$FILE" "$USER" "$(date '+%s')" >> $LOCK_FILE
-        echo "INFO: Successfully acquired lock on File($FILE), lock is now valid for $MAX_LOCK_HOURS hour(s)."
+        logger "INFO: Successfully acquired lock on File($FILE), lock is now valid for $MAX_LOCK_HOURS hour(s)."
         lck_acquired="yes"
     else
         local lck_time=$(printf '%s' "$f_entry" | cut -d: -f3)
@@ -196,7 +200,7 @@ acquire_lock(){
             local lck_user=$(printf '%s' "$f_entry" | cut -d: -f2)
             
             if [ "$USER" != "$lck_user" ]; then
-                echo "ERROR: Can't lock File($FILE). It is already locked to '$lck_user'."
+                logger "ERROR: Can't lock File($FILE). It is already locked to '$lck_user'."
                 RETVAL=3
             else
                 local d_time=$(( valid_time - cur_time ))
@@ -212,20 +216,20 @@ acquire_lock(){
                 else
                     t="$hrs hour(s)"
                 fi
-                echo "INFO: You already have the lock, valid for $t."
+                logger "INFO: You already have the lock, valid for $t."
             fi
         else
             # remove invalid lock
-            sed -i "/^$FILE:/d" $LOCK_FILE
+            sed -i "/^${FILE//\//\\/}:/d" $LOCK_FILE
 
             printf '%s:%s:%s\n' "$FILE" "$USER" "$(date '+%s')" >> $LOCK_FILE
-            echo "INFO: Successfully acquired lock on File($FILE), lock is now valid for $MAX_LOCK_HOURS hour(s)."
+            logger "INFO: Successfully acquired lock on File($FILE), lock is now valid for $MAX_LOCK_HOURS hour(s)."
             lck_acquired="yes"
         fi
     fi
 
     if [ "$lck_acquired" == "yes" ] && [ -f "$CACHE_DIR/push.lck" ]; then
-        echo "WARN: Someone is pushing changes, please update file before edit."
+        logger "WARN: Someone is pushing changes, please update file before edit."
     fi
 
     # release lock, and remove trap
@@ -250,7 +254,7 @@ release_lock(){
     if [ "$$" != "$(cat $f_lock)" ]; then
         # someone else acquired lock, lets try 3 more times after 0.3sec sleep
         [ -z "$count" ] && count=1
-        [[ $count -ge 4 ]] && echo "INFO: Could not acquired lock, please try again." && exit 2
+        [[ $count -ge 4 ]] && logger "INFO: Could not acquired lock, please try again." && exit 2
         sleep "0.3s"
 
         release_lock $((++count))
@@ -260,12 +264,12 @@ release_lock(){
     trap "rm -f $f_lock" 0 1 2 3 9 15
 
     if ! [ -e $LOCK_FILE ]; then
-        echo "INFO: File($FILE) is already unlocked."
+        logger "INFO: File($FILE) is already unlocked."
     else
-        local f_entry=$(sed -n "/^$FILE:/p" $LOCK_FILE)
+        local f_entry=$(sed -n "/^${FILE//\//\\/}:/p" $LOCK_FILE)
 
         if [ -z "$f_entry" ]; then
-            echo "INFO: File($FILE) is already unlocked."
+            logger "INFO: File($FILE) is already unlocked."
         else
             local lck_time=$(printf '%s' "$f_entry" | cut -d: -f3)
             local valid_time=$(( lck_time + ( MAX_LOCK_HOURS * 60 * 60 ) ))
@@ -275,16 +279,16 @@ release_lock(){
                 local lck_user=$(printf '%s' "$f_entry" | cut -d: -f2)
             
                 if [ "$USER" != "$lck_user" ]; then
-                    echo "ERROR: File($FILE) is locked to '$lck_user'. Can't release someone else's lock."
+                    logger "ERROR: File($FILE) is locked to '$lck_user'. Can't release someone else's lock."
                     RETVAL=3
                 else
-                    sed -i "/^$FILE:/d" $LOCK_FILE
-                    echo "INFO: Lock released from File($FILE)."                
+                    sed -i "/^${FILE//\//\\/}:/d" $LOCK_FILE
+                    logger "INFO: Lock released from File($FILE)."                
                 fi
             else
-                echo "WARN: Expired/Invalid lock found on File($FILE)."
-                sed -i "/^$FILE:/d" $LOCK_FILE
-                echo "INFO: Lock released from File($FILE)."
+                logger "WARN: Expired/Invalid lock found on File($FILE)."
+                sed -i "/^${FILE//\//\\/}:/d" $LOCK_FILE
+                logger "INFO: Lock released from File($FILE)."
             fi
         fi
     fi
@@ -312,7 +316,7 @@ query_lock(){
     if [ "$$" != "$(cat $f_lock)" ]; then
         # someone else acquired lock, lets try 3 more times after 0.3sec sleep
         [ -z "$count" ] && count=1
-        [[ $count -ge 4 ]] && echo "INFO: Could not acquired lock, please try again." && exit 2
+        [[ $count -ge 4 ]] && logger "INFO: Could not acquired lock, please try again." && exit 2
         sleep "0.3s"
 
         query_lock $((++count))
@@ -322,12 +326,12 @@ query_lock(){
     trap "rm -f $f_lock" 0 1 2 3 9 15
 
     if ! [ -e $LOCK_FILE ]; then
-        echo "STATUS:UNLOCKED, File is already unlocked."
+        logger "STATUS:UNLOCKED, File is already unlocked."
     else
-        local f_entry=$(sed -n "/^$FILE:/p" $LOCK_FILE)
+        local f_entry=$(sed -n "/^${FILE//\//\\/}:/p" $LOCK_FILE)
 
         if [ -z "$f_entry" ]; then
-            echo "STATUS:UNLOCKED, File is already unlocked."
+            logger "STATUS:UNLOCKED, File is already unlocked."
         else
             local lck_time=$(printf '%s' "$f_entry" | cut -d: -f3)
             local valid_time=$(( lck_time + ( MAX_LOCK_HOURS * 60 * 60 ) ))
@@ -352,13 +356,13 @@ query_lock(){
                 fi
             
                 if [ "$USER" != "$lck_user" ]; then
-                    echo "STATUS:LOCKED, File is locked to $lck_user, and is vaild for another $t."
+                    logger "STATUS:LOCKED, File is locked to $lck_user, and is vaild for another $t."
                     RETVAL=3
                 else
-                    echo "STATUS:LOCKED, File is already locked by you($USER) for another $t."
+                    logger "STATUS:LOCKED, File is already locked by you($USER) for another $t."
                 fi
             else
-                echo "STATUS:EXPIRED/INVALID, Expired/Invalid lock found on File($FILE)."
+                logger "STATUS:EXPIRED/INVALID, Expired/Invalid lock found on File($FILE)."
             fi
         fi
     fi
@@ -370,11 +374,11 @@ query_lock(){
 
 }
 
-[ -z "$FLAG" ] && echo "ERROR: No lock flag supplied." && help && exit 1
-[ -z "$USER" ] && echo "ERROR: No user supplied." && help && exit 1
-[ -z "$REPO" ] && echo "ERROR: No repo supplied." && help && exit 1
-[ -z "$BRANCH" ] && echo "ERROR: No branch supplied." && help && exit 1
-[ -z "$FILE" ] && echo "ERROR: No file supplied." && help && exit 1
+[ -z "$FLAG" ] && logger "ERROR: No lock flag supplied." && help && exit 1
+[ -z "$USER" ] && logger "ERROR: No user supplied." && help && exit 1
+[ -z "$REPO" ] && logger "ERROR: No repo supplied." && help && exit 1
+[ -z "$BRANCH" ] && logger "ERROR: No branch supplied." && help && exit 1
+[ -z "$FILE" ] && logger "ERROR: No file supplied." && help && exit 1
 
 case "$FLAG" in
     acquire)
@@ -387,7 +391,7 @@ case "$FLAG" in
         query_lock
         ;;
     *)
-        echo "ERROR: Invalid lock flag('$FLAG') supplied."
+        logger "ERROR: Invalid lock flag('$FLAG') supplied."
         exit 1
         ;;
 esac
