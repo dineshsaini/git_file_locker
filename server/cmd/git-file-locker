@@ -38,6 +38,13 @@
 #       PARAM_ENTRY=<SP><PARAM>
 #       PARAM_LIST=<PARAM_ENTRY><PARAM_LIST>|<EMPTY>
 #
+# exit status:
+# 0 -> success
+# 1 -> error in config/parsing/script related error
+# 2 -> cant aquire lock on LOCK_FILE
+# 3 -> lock acquired by someone else
+
+
 
 FLAG=""
 USER=""
@@ -125,13 +132,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# LOCK FILE STRUCTURE
-# <BASE_DIR>/git-file-locker/cache/locks/<repo>/<branch>/files.lck
-#   files.lck ::
-#   each line is a seperate lock
-#   line:: <lockable_file>:<user>:<time_of lock_grant><CRLF>
-#
-
 # get base dir
 if [ -d "/var/tmp" ] && [ -w "/var/tmp" ]; then
     BASE_DIR="/var/tmp"
@@ -146,6 +146,12 @@ CACHE_DIR="$BASE_DIR/git-file-locker/cache/locks/$REPO/$BRANCH"
 
 # get lock file
 LOCK_FILE="$CACHE_DIR/files.lck"
+
+# LOCK FILE STRUCTURE
+# <BASE_DIR>/git-file-locker/cache/locks/<repo>/<branch>/files.lck
+#   each line is a seperate lock
+#   line:: 
+#   <lockable_file>:<user>:<time_of lock_grant><CRLF>
 
 acquire_lock(){
     local f_lock="$LOCK_FILE.pid"
@@ -164,7 +170,7 @@ acquire_lock(){
     if [ "$$" != "$(cat $f_lock)" ]; then
         # someone else acquired lock, lets try 3 more times after 0.3sec sleep
         [ -z "$count" ] && count=1
-        [[ $count -ge 4 ]] && echo "Could not acquired lock, please try again." && exit 1
+        [[ $count -ge 4 ]] && echo "INFO: Could not acquired lock, please try again." && exit 2
         sleep "0.3s"
 
         acquire_lock $((++count))
@@ -191,14 +197,18 @@ acquire_lock(){
             
             if [ "$USER" != "$lck_user" ]; then
                 echo "ERROR: Can't lock File($FILE). It is already locked to '$USER'."
-                RETVAL=1
+                RETVAL=3
             else
                 local d_time=$(( valid_time - cur_time ))
                 local min=$(( d_time / 60 ))
                 local hrs=$(( min / 60 ))
                 local t=""
                 if [[ $hrs -eq 0 ]]; then
-                    t="$min minute(s)"
+                    if [[ $min -eq 0 ]]; then
+                        t="$d_time second(s)"
+                    else
+                        t="$min minute(s)"
+                    fi
                 else
                     t="$hrs hour(s)"
                 fi
@@ -224,45 +234,147 @@ acquire_lock(){
     [[ $RETVAL -gt 0 ]] && exit $RETVAL
 }
 
-# LOCK RELEASE
-#
-# check if lock acquired on same branch, on that file?
-#   if no, then nothing to relase, exit with success
-#   if yes,
-#       is time of lock acquired within max limit?
-#           if no, then invalid lock, release and return success
-#           if yes,
-#               is lock acquired by same user?
-#                   if no, then fail with error, cant release someone else's lock
-#                   if yes, release and return success
-
 release_lock(){
-  echo "release"
+    local f_lock="$LOCK_FILE.pid"
+    local count=$1
+    local RETVAL=0
 
+    mkdir -p $(dirname $f_lock)
+
+    # try to lock lock_file for writing
+    if ! [ -e $f_lock ]; then
+        (set -o noclobber; printf '%s' "$$" > "$f_lock") 2> /dev/null;
+    fi
+
+    # verify if we have lock, or race condition happened
+    if [ "$$" != "$(cat $f_lock)" ]; then
+        # someone else acquired lock, lets try 3 more times after 0.3sec sleep
+        [ -z "$count" ] && count=1
+        [[ $count -ge 4 ]] && echo "INFO: Could not acquired lock, please try again." && exit 2
+        sleep "0.3s"
+
+        release_lock $((++count))
+    fi
+
+    # we got lock, set trap for fails
+    trap "rm -f $f_lock" 0 1 2 3 9 15
+
+    if ! [ -e $LOCK_FILE ]; then
+        echo "INFO: File($FILE) is already unlocked."
+    else
+        local f_entry=$(sed -n "/^$FILE:/p" $LOCK_FILE)
+
+        if [ -z "$f_entry" ]; then
+            echo "INFO: File($FILE) is already unlocked."
+        else
+            local lck_time=$(printf '%s' "$f_entry" | cut -d: -f3)
+            local valid_time=$(( lck_time + ( MAX_LOCK_HOURS * 60 * 60 ) ))
+            local cur_time=$(date '+%s')
+
+            if [[ $cur_time -lt $valid_time ]]; then
+                local lck_user=$(printf '%s' "$f_entry" | cut -d: -f2)
+            
+                if [ "$USER" != "$lck_user" ]; then
+                    echo "ERROR: File($FILE) is locked to '$USER'. Can't release someone else's lock."
+                    RETVAL=3
+                else
+                    sed -i "/^$FILE:/d" $LOCK_FILE
+                    echo "INFO: Lock released from File($FILE)."                
+                fi
+            else
+                echo "WARN: Expired/Invalid lock found on File($FILE)."
+                sed -i "/^$FILE:/d" $LOCK_FILE
+                echo "INFO: Lock released from File($FILE)."
+            fi
+        fi
+    fi
+
+    # release lock, and remove trap
+    rm -f $f_lock
+    trap - 0 1 2 3 9 15
+    [[ $RETVAL -gt 0 ]] && exit $RETVAL
 }
 
-# LOCK QUERY
-# check if lock-file exists of same branch?
-#   if no, then there is no lock, return unlocked
-#   if yes,
-#       is lockable file's enrty exists in that branch's lock-file?
-#           if no, then return unlocked
-#           if yes,
-#               is time of lock acquired within max limit?
-#                   if no, then return unlocked, with message 'acquired lock has already expired'
-#                   if yes, then return locked, with message 'locked to <user>'
-#
 
 query_lock(){
-    echo "query"
+    local f_lock="$LOCK_FILE.pid"
+    local count=$1
+    local RETVAL=0
+
+    mkdir -p $(dirname $f_lock)
+
+    # try to lock lock_file for writing
+    if ! [ -e $f_lock ]; then
+        (set -o noclobber; printf '%s' "$$" > "$f_lock") 2> /dev/null;
+    fi
+
+    # verify if we have lock, or race condition happened
+    if [ "$$" != "$(cat $f_lock)" ]; then
+        # someone else acquired lock, lets try 3 more times after 0.3sec sleep
+        [ -z "$count" ] && count=1
+        [[ $count -ge 4 ]] && echo "INFO: Could not acquired lock, please try again." && exit 2
+        sleep "0.3s"
+
+        query_lock $((++count))
+    fi
+
+    # we got lock, set trap for fails
+    trap "rm -f $f_lock" 0 1 2 3 9 15
+
+    if ! [ -e $LOCK_FILE ]; then
+        echo "STATUS:UNLOCKED, File is already unlocked."
+    else
+        local f_entry=$(sed -n "/^$FILE:/p" $LOCK_FILE)
+
+        if [ -z "$f_entry" ]; then
+            echo "STATUS:UNLOCKED, File is already unlocked."
+        else
+            local lck_time=$(printf '%s' "$f_entry" | cut -d: -f3)
+            local valid_time=$(( lck_time + ( MAX_LOCK_HOURS * 60 * 60 ) ))
+            local cur_time=$(date '+%s')
+
+            if [[ $cur_time -lt $valid_time ]]; then
+                local lck_user=$(printf '%s' "$f_entry" | cut -d: -f2)
+
+                local d_time=$(( valid_time - cur_time ))
+                local min=$(( d_time / 60 ))
+                local hrs=$(( min / 60 ))
+                local t=""
+
+                if [[ $hrs -eq 0 ]]; then
+                    if [[ $min -eq 0 ]]; then
+                        t="$d_time second(s)"
+                    else
+                        t="$min minute(s)"
+                    fi
+                else
+                    t="$hrs hour(s)"
+                fi
+            
+                if [ "$USER" != "$lck_user" ]; then
+                    echo "STATUS:LOCKED, File is locked to $USER, and is vaild for another $t."
+                    RETVAL=3
+                else
+                    echo "STATUS:LOCKED, File is already locked by you($USER) for another $t."
+                fi
+            else
+                echo "STATUS:EXPIRED/INVALID, Expired/Invalid lock found on File($FILE)."
+            fi
+        fi
+    fi
+
+    # release lock, and remove trap
+    rm -f $f_lock
+    trap - 0 1 2 3 9 15
+    [[ $RETVAL -gt 0 ]] && exit $RETVAL
 
 }
 
-[ -z "$FLAG" ] && echo "ERROR: No lock flag supplied." && help && exit 2
-[ -z "$USER" ] && echo "ERROR: No user supplied." && help && exit 2
-[ -z "$REPO" ] && echo "ERROR: No repo supplied." && help && exit 2
-[ -z "$BRANCH" ] && echo "ERROR: No branch supplied." && help && exit 2
-[ -z "$FILE" ] && echo "ERROR: No file supplied." && help && exit 2
+[ -z "$FLAG" ] && echo "ERROR: No lock flag supplied." && help && exit 1
+[ -z "$USER" ] && echo "ERROR: No user supplied." && help && exit 1
+[ -z "$REPO" ] && echo "ERROR: No repo supplied." && help && exit 1
+[ -z "$BRANCH" ] && echo "ERROR: No branch supplied." && help && exit 1
+[ -z "$FILE" ] && echo "ERROR: No file supplied." && help && exit 1
 
 case "$FLAG" in
     acquire)
@@ -276,7 +388,7 @@ case "$FLAG" in
         ;;
     *)
         echo "ERROR: Invalid lock flag('$FLAG') supplied."
-        exit 2
+        exit 1
         ;;
 esac
 

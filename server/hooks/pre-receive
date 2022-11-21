@@ -39,10 +39,11 @@ for f in $(git diff --name-only $oldref..$newref); do
         # retval == 0, file is either unlocked, or locked to same user, as supplied,
         #               or expired/invalid lock
         continue;
-    elif [[ "$query_retval" -eq  1 ]]; then
-        # retval == 1, file is locked to someone else
-        local lck_user=$(printf '%s' "$query_out" | sed 's/^STATUS:LOCKED to user //')
-        echo "ERROR: File('$f') included in current operation is already locked to '$lck_user'."
+    elif [[ "$query_retval" -eq  3 ]]; then
+        # retval == 3, file is locked to someone else
+
+        local lck_msg=$(printf '%s' "$query_out" | sed -e 's/^STATUS:LOCKED, File is locked to //')
+        echo "ERROR: File('$f') included in current operation is already locked to $lck_msg."
         echo "Can't continue, exiting."
         exit 1
     else
