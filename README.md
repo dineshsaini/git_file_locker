@@ -36,6 +36,7 @@ This is not a fully developed app, its just a hack to work on project files, so 
 
 User of file is either fetched from config or from commiter, however those can be manipulated by using command directly.
 
-
+# use case
+on import/export systems that uses xml/json/etc file are sometimes unmanagable when multiple people commit changes as merging becomes difficult for same xml structure there can be multiple totally different exported files, so working on them in atomic manner makes things easy. This tool tries to avoid philosphy of git in a small use case.
 
 
