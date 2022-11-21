@@ -19,11 +19,11 @@ error(){
 
 help(){
     printf '%s\n' "\$$0 [--ack|--rel|--query] [file_to_lock]"
-    printf '%s\n' "--ack        Try to acquire lock."
-    printf '%s\n' "--rel        Try to release lock."
-    printf '%s\n' "--ack & --rel    flags are mutually exclusive."
-    printf '%s\n' "--query      Check if file is already locked."
-    printf '%s\n' "-h|--help        Print this help and exit."
+    printf '%s\n' "--ack                        Try to acquire lock."
+    printf '%s\n' "--rel                        Try to release lock."
+    printf '%s\n' "--query                      Check if file is already locked."
+    printf '%s\n' "--ack | --rel | --query      flags are mutually exclusive."
+    printf '%s\n' "-h|--help                    Print this help and exit."
     return 0
 }
 
